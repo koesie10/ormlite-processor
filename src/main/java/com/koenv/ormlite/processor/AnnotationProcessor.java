@@ -195,6 +195,7 @@ public class AnnotationProcessor extends AbstractProcessor {
 
         for (DatabaseFieldConfig config : fieldConfigs) {
             fieldConfigsMethodBuilder.addCode(getFieldConfig(config, tableName));
+            fieldConfigsMethodBuilder.addStatement("list.add(config$L)", i);
         }
 
         fieldConfigsMethodBuilder.addStatement("return list");
@@ -215,12 +216,9 @@ public class AnnotationProcessor extends AbstractProcessor {
 
     private CodeBlock getFieldConfig(DatabaseFieldConfig config, String tableName) {
         i++;
+        ClassName databaseFieldConfig = ClassName.get(com.j256.ormlite.field.DatabaseFieldConfig.class);
         CodeBlock.Builder builder = CodeBlock.builder()
-                .addStatement("$T config$L = new $T()",
-                        com.j256.ormlite.field.DatabaseFieldConfig.class,
-                        i,
-                        com.j256.ormlite.field.DatabaseFieldConfig.class
-                );
+                .addStatement("$T config$L = new $T()", databaseFieldConfig, i, databaseFieldConfig);
         if (config.getFieldName() != null) {
             builder.addStatement("config$L.setFieldName($S)", i, config.getFieldName());
         }
@@ -271,12 +269,12 @@ public class AnnotationProcessor extends AbstractProcessor {
         }
         String indexName = config.getIndexName(tableName);
         if (indexName != null) {
-            builder.addStatement("config$L.setIndex($L)", true);
+            builder.addStatement("config$L.setIndex($L)", i, true);
             builder.addStatement("config$L.setIndexName($S)", i, indexName);
         }
         String uniqueIndexName = config.getUniqueIndexName(tableName);
         if (uniqueIndexName != null) {
-            builder.addStatement("config$L.setUniqueIndex($L)", true);
+            builder.addStatement("config$L.setUniqueIndex($L)", i, true);
             builder.addStatement("config$L.setUniqueIndexName($S)", i, uniqueIndexName);
         }
         if (config.isForeignAutoRefresh()) {
