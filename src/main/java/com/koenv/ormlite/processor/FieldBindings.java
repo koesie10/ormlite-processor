@@ -35,7 +35,7 @@ import javax.lang.model.util.Types;
  *
  * @author graywatson
  */
-public class DatabaseFieldConfig {
+public class FieldBindings {
 
     private static final int DEFAULT_MAX_EAGER_FOREIGN_COLLECTION_LEVEL = ForeignCollectionField.MAX_EAGER_LEVEL;
     public static final DataType DEFAULT_DATA_TYPE = DataType.UNKNOWN;
@@ -80,7 +80,7 @@ public class DatabaseFieldConfig {
     private boolean foreignCollectionOrderAscending = DEFAULT_FOREIGN_COLLECTION_ORDER_ASCENDING;
     private String foreignCollectionForeignFieldName;
 
-    public DatabaseFieldConfig() {
+    public FieldBindings() {
     }
 
     /**
@@ -262,8 +262,8 @@ public class DatabaseFieldConfig {
         return readOnly;
     }
 
-    public static DatabaseFieldConfig fromDatabaseField(DatabaseType databaseType, Element field, DatabaseField databaseField, Types typeUtils) {
-        DatabaseFieldConfig config = new DatabaseFieldConfig();
+    public static FieldBindings fromDatabaseField(DatabaseType databaseType, Element field, DatabaseField databaseField, Types typeUtils) {
+        FieldBindings config = new FieldBindings();
         config.fieldName = field.getSimpleName().toString();
         if (databaseType.isEntityNamesMustBeUpCase()) {
             config.fieldName = config.fieldName.toUpperCase();
@@ -336,8 +336,8 @@ public class DatabaseFieldConfig {
         throw new IllegalArgumentException("Unknwown enum unknown name " + unknownEnumName + " for field " + field);
     }
 
-    public static DatabaseFieldConfig fromForeignCollection(Element field, ForeignCollectionField foreignCollection) {
-        DatabaseFieldConfig config = new DatabaseFieldConfig();
+    public static FieldBindings fromForeignCollection(Element field, ForeignCollectionField foreignCollection) {
+        FieldBindings config = new FieldBindings();
         config.fieldName = field.getSimpleName().toString();
         if (foreignCollection.columnName().length() > 0) {
             config.columnName = foreignCollection.columnName();

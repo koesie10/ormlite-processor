@@ -90,3 +90,4 @@ annotation will give an error if it's found on generated classes.
 a config file.
 * It only works for one project in the dependency tree. This is because it always generates the same
 class, with the same package and name. If it was used in 2 projects, it would give a duplicated class error.
+* No JPA support
