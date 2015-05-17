@@ -1,5 +1,8 @@
 OrmLite Annotation Processor
 ===============
+[![Build Status](https://travis-ci.org/koesie10/ormlite-processor.svg?branch=master)](https://travis-ci.org/koesie10/ormlite-processor)
+[![Download](https://api.bintray.com/packages/koesie10/maven/ormlite-processor/images/download.svg) ](https://bintray.com/koesie10/maven/ormlite-processor/_latestVersion)
+
 An OrmLite annotation processor which helps to cache classes. You may be familiar 
 with [OrmLiteConfigUtil](http://ormlite.com/javadoc/ormlite-android/com/j256/ormlite/android/apptools/OrmLiteConfigUtil.html)
 which you need to run every time you changed a field or added a table in your Android app. This annotation processor
