@@ -1,5 +1,7 @@
 OrmLite Annotation Processor
 ===============
+
+[![Join the chat at https://gitter.im/koesie10/ormlite-processor](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/koesie10/ormlite-processor?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 [![Build Status](https://travis-ci.org/koesie10/ormlite-processor.svg?branch=master)](https://travis-ci.org/koesie10/ormlite-processor)
 [![Download](https://api.bintray.com/packages/koesie10/maven/ormlite-processor/images/download.svg) ](https://bintray.com/koesie10/maven/ormlite-processor/_latestVersion)
 
