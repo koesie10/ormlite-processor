@@ -5,8 +5,8 @@ apply plugin: 'bintray-release'
 group = 'com.koenv.ormlite-processor'
 version = '0.2-SNAPSHOT'
 
-sourceCompatibility = 1.6
-targetCompatibility = 1.6
+sourceCompatibility = 1.7
+targetCompatibility = 1.7
 
 repositories {
     mavenCentral()
