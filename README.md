@@ -80,3 +80,13 @@ dependencies {
     apt 'com.koenv:ormlite-processor:0.1'
 }
 ```
+
+Limitations
+-----------
+* Only one round of processing is supported, which means that the 
+[@DatabaseField](http://ormlite.com/javadoc/ormlite-core/com/j256/ormlite/field/DatabaseField.html) 
+annotation will give an error if it's found on generated classes.
+* Only works on Android because it's hard to detect which database type is going to be used in the code without
+a config file.
+* It only works for one project in the dependency tree. This is because it always generates the same
+class, with the same package and name. If it was used in 2 projects, it would give a duplicated class error.
