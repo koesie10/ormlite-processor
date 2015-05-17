@@ -28,6 +28,7 @@ import com.j256.ormlite.dao.DaoManager;
 import com.j256.ormlite.db.DatabaseType;
 import com.j256.ormlite.db.SqliteAndroidDatabaseType;
 import com.j256.ormlite.field.DatabaseField;
+import com.j256.ormlite.field.DatabaseFieldConfig;
 import com.j256.ormlite.field.ForeignCollectionField;
 import com.j256.ormlite.table.DatabaseTable;
 import com.j256.ormlite.table.DatabaseTableConfig;
@@ -50,15 +51,13 @@ import static com.j256.ormlite.field.DatabaseFieldConfig.DEFAULT_DATA_TYPE;
 public class AnnotationProcessor extends AbstractProcessor {
     private static final int DEFAULT_MAX_EAGER_FOREIGN_COLLECTION_LEVEL = ForeignCollectionField.MAX_EAGER_LEVEL;
 
-    private static Types typeUtils;
-    private static Filer filer;
-    private static Messager messager;
+    private Types typeUtils;
+    private Filer filer;
+    private Messager messager;
 
     private static final DatabaseType databaseType = new SqliteAndroidDatabaseType();
 
     private List<ClassName> generatedClasses;
-
-    private int i;
 
     @Override
     public synchronized void init(ProcessingEnvironment processingEnv) {
@@ -79,7 +78,7 @@ public class AnnotationProcessor extends AbstractProcessor {
             }
             TypeElement typeElement = (TypeElement) annotatedElement;
             String tableName = extractTableName(typeElement);
-            List<DatabaseFieldConfig> fieldConfigs = new ArrayList<DatabaseFieldConfig>();
+            List<FieldBindings> fieldConfigs = new ArrayList<FieldBindings>();
             // walk up the classes finding the fields
             TypeElement working = typeElement;
             while (working != null) {
@@ -90,13 +89,13 @@ public class AnnotationProcessor extends AbstractProcessor {
                             if (!databaseField.persisted()) {
                                 continue;
                             }
-                            DatabaseFieldConfig fieldConfig = DatabaseFieldConfig.fromDatabaseField(databaseType, element, databaseField, typeUtils);
+                            FieldBindings fieldConfig = FieldBindings.fromDatabaseField(databaseType, element, databaseField, typeUtils, messager);
                             if (fieldConfig != null) {
                                 fieldConfigs.add(fieldConfig);
                             }
                         } else if (element.getAnnotation(ForeignCollectionField.class) != null) {
                             ForeignCollectionField foreignCollectionField = element.getAnnotation(ForeignCollectionField.class);
-                            DatabaseFieldConfig fieldConfig = DatabaseFieldConfig.fromForeignCollection(element, foreignCollectionField);
+                            FieldBindings fieldConfig = FieldBindings.fromForeignCollection(element, foreignCollectionField);
                             if (fieldConfig != null) {
                                 fieldConfigs.add(fieldConfig);
                             }
@@ -154,6 +153,7 @@ public class AnnotationProcessor extends AbstractProcessor {
         MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("init")
                 .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
                 .returns(TypeName.VOID)
+                .addJavadoc("Call this method when initializing your application\n")
                 .addStatement("$T configs = new $T()", collectionOfTableConfigs, listOfTableConfigs);
 
         for (ClassName tableConfig : generatedClasses) {
@@ -167,7 +167,7 @@ public class AnnotationProcessor extends AbstractProcessor {
         return JavaFile.builder(className.packageName(), configBuilder.build()).build();
     }
 
-    private JavaFile generateFile(TypeElement element, List<DatabaseFieldConfig> fieldConfigs, String tableName) {
+    private JavaFile generateFile(TypeElement element, List<FieldBindings> fieldConfigs, String tableName) {
         ClassName className = ClassName.get(element);
         ClassName configName = ClassName.get(className.packageName(), Joiner.on('$').join(className.simpleNames()) + "$$Configuration");
 
@@ -185,17 +185,19 @@ public class AnnotationProcessor extends AbstractProcessor {
         tableConfigMethodBuilder.addStatement("config.setDataClass($T.class)", element);
         tableConfigMethodBuilder.addStatement("config.setTableName($S)", tableName);
 
-        TypeName listOfFieldConfigs = ParameterizedTypeName.get(List.class, com.j256.ormlite.field.DatabaseFieldConfig.class);
-        TypeName arrayListOfFieldConfigs = ParameterizedTypeName.get(ArrayList.class, com.j256.ormlite.field.DatabaseFieldConfig.class);
+        TypeName listOfFieldConfigs = ParameterizedTypeName.get(List.class, DatabaseFieldConfig.class);
+        TypeName arrayListOfFieldConfigs = ParameterizedTypeName.get(ArrayList.class, DatabaseFieldConfig.class);
 
         MethodSpec.Builder fieldConfigsMethodBuilder = MethodSpec.methodBuilder("getFieldConfigs")
                 .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
                 .returns(listOfFieldConfigs)
                 .addStatement("$T list = new $T()", listOfFieldConfigs, arrayListOfFieldConfigs);
 
-        for (DatabaseFieldConfig config : fieldConfigs) {
+        fieldConfigsMethodBuilder.addStatement("$T config = null", DatabaseFieldConfig.class);
+
+        for (FieldBindings config : fieldConfigs) {
             fieldConfigsMethodBuilder.addCode(getFieldConfig(config, tableName));
-            fieldConfigsMethodBuilder.addStatement("list.add(config$L)", i);
+            fieldConfigsMethodBuilder.addStatement("list.add(config)");
         }
 
         fieldConfigsMethodBuilder.addStatement("return list");
@@ -214,121 +216,119 @@ public class AnnotationProcessor extends AbstractProcessor {
         return JavaFile.builder(configName.packageName(), configBuilder.build()).build();
     }
 
-    private CodeBlock getFieldConfig(DatabaseFieldConfig config, String tableName) {
-        i++;
-        ClassName databaseFieldConfig = ClassName.get(com.j256.ormlite.field.DatabaseFieldConfig.class);
+    private CodeBlock getFieldConfig(FieldBindings config, String tableName) {
         CodeBlock.Builder builder = CodeBlock.builder()
-                .addStatement("$T config$L = new $T()", databaseFieldConfig, i, databaseFieldConfig);
+                .addStatement("config = new $T()", DatabaseFieldConfig.class);
         if (config.getFieldName() != null) {
-            builder.addStatement("config$L.setFieldName($S)", i, config.getFieldName());
+            builder.addStatement("config.setFieldName($S)", config.getFieldName());
         }
         if (config.getColumnName() != null) {
-            builder.addStatement("config$L.setColumnName($S)", i, config.getColumnName());
+            builder.addStatement("config.setColumnName($S)", config.getColumnName());
         }
         if (config.getDataType() != DEFAULT_DATA_TYPE) {
-            builder.addStatement("config$L.setDataType($T.$L)", i, config.getDataType().getClass(), config.getDataType().name());
+            builder.addStatement("config.setDataType($T.$L)", config.getDataType().getClass(), config.getDataType().name());
         }
         if (config.getDefaultValue() != null) {
-            builder.addStatement("config$L.setDefaultValue($S)", i, config.getDefaultValue());
+            builder.addStatement("config.setDefaultValue($S)", config.getDefaultValue());
         }
         if (config.getWidth() != 0) {
-            builder.addStatement("config$L.setWidth($L)", i, config.getWidth());
+            builder.addStatement("config.setWidth($L)", config.getWidth());
         }
         if (!config.isCanBeNull()) {
-            builder.addStatement("config$L.setCanBeNull($L)", i, config.isCanBeNull());
+            builder.addStatement("config.setCanBeNull($L)", config.isCanBeNull());
         }
         if (config.isId()) {
-            builder.addStatement("config$L.setId($L)", i, config.isId());
+            builder.addStatement("config.setId($L)", config.isId());
         }
         if (config.isGeneratedId()) {
-            builder.addStatement("config$L.setGeneratedId($L)", i, config.isGeneratedId());
+            builder.addStatement("config.setGeneratedId($L)", config.isGeneratedId());
         }
         if (config.getGeneratedIdSequence() != null) {
-            builder.addStatement("config$L.setGeneratedIdSequence($S)", i, config.getGeneratedIdSequence());
+            builder.addStatement("config.setGeneratedIdSequence($S)", config.getGeneratedIdSequence());
         }
         if (config.isForeign()) {
-            builder.addStatement("config$L.setForeign($L)", i, config.isForeign());
+            builder.addStatement("config.setForeign($L)", config.isForeign());
         }
         if (config.isUseGetSet()) {
-            builder.addStatement("config$L.setUseGetSet($L)", i, config.isUseGetSet());
+            builder.addStatement("config.setUseGetSet($L)", config.isUseGetSet());
         }
         if (config.getUnknownEnumValue() != null) {
-            builder.addStatement("config$L.setUnknownEnumValue($T)", i, config.getUnknownEnumValue());
+            builder.addStatement("config.setUnknownEnumValue($T.$L)", config.getUnknownEnumValue(), config.getUnknownEnumValue());
         }
         if (config.isThrowIfNull()) {
-            builder.addStatement("config$L.setThrowIfNull($L)", i, config.isThrowIfNull());
+            builder.addStatement("config.setThrowIfNull($L)", config.isThrowIfNull());
         }
         if (config.getFormat() != null) {
-            builder.addStatement("config$L.setFormat($S)", i, config.getFormat());
+            builder.addStatement("config.setFormat($S)", config.getFormat());
         }
         if (config.isUnique()) {
-            builder.addStatement("config$L.setUnique($L)", i, config.isUnique());
+            builder.addStatement("config.setUnique($L)", config.isUnique());
         }
         if (config.isUniqueCombo()) {
-            builder.addStatement("config$L.setUniqueCombo($L)", i, config.isUniqueCombo());
+            builder.addStatement("config.setUniqueCombo($L)", config.isUniqueCombo());
         }
         String indexName = config.getIndexName(tableName);
         if (indexName != null) {
-            builder.addStatement("config$L.setIndex($L)", i, true);
-            builder.addStatement("config$L.setIndexName($S)", i, indexName);
+            builder.addStatement("config.setIndex($L)", true);
+            builder.addStatement("config.setIndexName($S)", indexName);
         }
         String uniqueIndexName = config.getUniqueIndexName(tableName);
         if (uniqueIndexName != null) {
-            builder.addStatement("config$L.setUniqueIndex($L)", i, true);
-            builder.addStatement("config$L.setUniqueIndexName($S)", i, uniqueIndexName);
+            builder.addStatement("config.setUniqueIndex($L)", true);
+            builder.addStatement("config.setUniqueIndexName($S)", uniqueIndexName);
         }
         if (config.isForeignAutoRefresh()) {
-            builder.addStatement("config$L.setForeignAutoRefresh($L)", i, config.isForeignAutoRefresh());
+            builder.addStatement("config.setForeignAutoRefresh($L)", config.isForeignAutoRefresh());
         }
         if (config.getMaxForeignAutoRefreshLevel() != DatabaseField.NO_MAX_FOREIGN_AUTO_REFRESH_LEVEL_SPECIFIED) {
-            builder.addStatement("config$L.setMaxForeignAutoRefreshLevel($L)", i, config.getMaxForeignAutoRefreshLevel());
+            builder.addStatement("config.setMaxForeignAutoRefreshLevel($L)", config.getMaxForeignAutoRefreshLevel());
         }
         if (!config.getPersisterClass().getQualifiedName().toString().equals("com.j256.ormlite.field.types.VoidType")) {
-            builder.addStatement("config$L.setPersisterClass($T.class)", i, config.getPersisterClass());
+            builder.addStatement("config.setPersisterClass($T.class)", config.getPersisterClass());
         }
         if (config.isAllowGeneratedIdInsert()) {
-            builder.addStatement("config$L.setAllowGeneratedIdInsert($L)", i, config.isAllowGeneratedIdInsert());
+            builder.addStatement("config.setAllowGeneratedIdInsert($L)", config.isAllowGeneratedIdInsert());
         }
         if (config.getColumnDefinition() != null) {
-            builder.addStatement("config$L.setColumnDefinition($S)", i, config.getColumnDefinition());
+            builder.addStatement("config.setColumnDefinition($S)", config.getColumnDefinition());
         }
         if (config.isForeignAutoCreate()) {
-            builder.addStatement("config$L.setForeignAutoCreate($L)", i, config.isForeignAutoCreate());
+            builder.addStatement("config.setForeignAutoCreate($L)", config.isForeignAutoCreate());
         }
         if (config.isVersion()) {
-            builder.addStatement("config$L.setVersion($L)", i, config.isVersion());
+            builder.addStatement("config.setVersion($L)", config.isVersion());
         }
         String foreignColumnName = config.getForeignColumnName();
         if (foreignColumnName != null) {
-            builder.addStatement("config$L.setForeignColumnName($S)", i, config.getForeignColumnName());
+            builder.addStatement("config.setForeignColumnName($S)", config.getForeignColumnName());
         }
         if (config.isReadOnly()) {
-            builder.addStatement("config$L.setReadOnly($L)", i, config.isReadOnly());
+            builder.addStatement("config.setReadOnly($L)", config.isReadOnly());
         }
 
 		/*
          * Foreign collection settings:
 		 */
         if (config.isForeignCollection()) {
-            builder.addStatement("config$L.setForeignCollection($L)", i, config.isForeignCollection());
+            builder.addStatement("config.setForeignCollection($L)", config.isForeignCollection());
         }
         if (config.isForeignCollectionEager()) {
-            builder.addStatement("config$L.setForeignCollectionEager($L)", i, config.isForeignCollectionEager());
+            builder.addStatement("config.setForeignCollectionEager($L)", config.isForeignCollectionEager());
         }
         if (config.getForeignCollectionMaxEagerLevel() != DEFAULT_MAX_EAGER_FOREIGN_COLLECTION_LEVEL) {
-            builder.addStatement("config$L.setForeignCollectionMaxEagerLevel($L)", i, config.getForeignCollectionMaxEagerLevel());
+            builder.addStatement("config.setForeignCollectionMaxEagerLevel($L)", config.getForeignCollectionMaxEagerLevel());
         }
         if (config.getForeignCollectionColumnName() != null) {
-            builder.addStatement("config$L.setForeignCollectionColumnName($S)", i, config.getForeignCollectionColumnName());
+            builder.addStatement("config.setForeignCollectionColumnName($S)", config.getForeignCollectionColumnName());
         }
         if (config.getForeignCollectionOrderColumnName() != null) {
-            builder.addStatement("config$L.setForeignCollectionOrderColumnName($S)", i, config.getForeignCollectionOrderColumnName());
+            builder.addStatement("config.setForeignCollectionOrderColumnName($S)", config.getForeignCollectionOrderColumnName());
         }
         if (!config.isForeignCollectionOrderAscending()) {
-            builder.addStatement("config$L.setForeignCollectionOrderAscending($L)", i, config.isForeignCollectionOrderAscending());
+            builder.addStatement("config.setForeignCollectionOrderAscending($L)", config.isForeignCollectionOrderAscending());
         }
         if (config.getForeignCollectionForeignFieldName() != null) {
-            builder.addStatement("config$L.setForeignCollectionForeignFieldName($S)", i, config.getForeignCollectionForeignFieldName());
+            builder.addStatement("config.setForeignCollectionForeignFieldName($S)", config.getForeignCollectionForeignFieldName());
         }
 
         return builder.build();

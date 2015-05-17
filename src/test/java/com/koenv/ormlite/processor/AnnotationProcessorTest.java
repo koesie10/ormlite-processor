@@ -8,14 +8,26 @@ import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
 
 public class AnnotationProcessorTest {
     @Test
-    public void simpleTest() {
+    public void simpleModelTest() {
         assert_().about(javaSource())
-                .that(JavaFileObjects.forResource("com/koenv/ormlite/processor/SimpleModel.java"))
+                .that(JavaFileObjects.forResource("simple_model/SimpleModel.java"))
                 .processedWith(new AnnotationProcessor())
                 .compilesWithoutError()
                 .and().generatesSources(
-                JavaFileObjects.forResource("com/koenv/ormlite/processor/SimpleModel$$Configuration.java"),
-                JavaFileObjects.forResource("com/koenv/ormlite/processor/OrmLiteProcessor.java")
+                JavaFileObjects.forResource("simple_model/SimpleModel$$Configuration.java"),
+                JavaFileObjects.forResource("simple_model/OrmLiteProcessor.java")
+        );
+    }
+
+    @Test
+    public void enumModelTest() {
+        assert_().about(javaSource())
+                .that(JavaFileObjects.forResource("enum_model/EnumModel.java"))
+                .processedWith(new AnnotationProcessor())
+                .compilesWithoutError()
+                .and().generatesSources(
+                JavaFileObjects.forResource("enum_model/EnumModel$$Configuration.java"),
+                JavaFileObjects.forResource("enum_model/OrmLiteProcessor.java")
         );
     }
 }

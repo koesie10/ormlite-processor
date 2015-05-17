@@ -11,16 +11,17 @@ import java.util.List;
 public final class SimpleModel$$Configuration {
     public static List<DatabaseFieldConfig> getFieldConfigs() {
         List<DatabaseFieldConfig> list = new ArrayList<DatabaseFieldConfig>();
-        DatabaseFieldConfig config1 = new DatabaseFieldConfig();
-        config1.setFieldName("name");
-        list.add(config1);
-        DatabaseFieldConfig config2 = new DatabaseFieldConfig();
-        config2.setFieldName("simpleBoolean");
-        config2.setColumnName("test");
-        config2.setDataType(DataType.BOOLEAN);
-        config2.setCanBeNull(false);
-        config2.setPersisterClass(BooleanType.class);
-        list.add(config2);
+        DatabaseFieldConfig config = null;
+        config = new DatabaseFieldConfig();
+        config.setFieldName("name");
+        list.add(config);
+        config = new DatabaseFieldConfig();
+        config.setFieldName("simpleBoolean");
+        config.setColumnName("test");
+        config.setDataType(DataType.BOOLEAN);
+        config.setCanBeNull(false);
+        config.setPersisterClass(BooleanType.class);
+        list.add(config);
         return list;
     }
 

@@ -23,11 +23,15 @@ import com.j256.ormlite.field.DataType;
 import com.j256.ormlite.field.DatabaseField;
 import com.j256.ormlite.field.ForeignCollectionField;
 
+import javax.annotation.processing.Messager;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.MirroredTypeException;
 import javax.lang.model.util.Types;
+import javax.tools.Diagnostic;
 
 /**
  * Database field configuration information either supplied by a {@link DatabaseField} annotation or by direct Java or
@@ -262,107 +266,112 @@ public class FieldBindings {
         return readOnly;
     }
 
-    public static FieldBindings fromDatabaseField(DatabaseType databaseType, Element field, DatabaseField databaseField, Types typeUtils) {
-        FieldBindings config = new FieldBindings();
-        config.fieldName = field.getSimpleName().toString();
+    public static FieldBindings fromDatabaseField(DatabaseType databaseType, Element field, DatabaseField databaseField, Types typeUtils, Messager messager) {
+        FieldBindings bindings = new FieldBindings();
+        bindings.fieldName = field.getSimpleName().toString();
         if (databaseType.isEntityNamesMustBeUpCase()) {
-            config.fieldName = config.fieldName.toUpperCase();
+            bindings.fieldName = bindings.fieldName.toUpperCase();
         }
-        config.columnName = valueIfNotBlank(databaseField.columnName());
-        config.dataType = databaseField.dataType();
+        bindings.columnName = valueIfNotBlank(databaseField.columnName());
+        bindings.dataType = databaseField.dataType();
         // NOTE: == did not work with the NO_DEFAULT string
         String defaultValue = databaseField.defaultValue();
         if (!defaultValue.equals(DatabaseField.DEFAULT_STRING)) {
-            config.defaultValue = defaultValue;
+            bindings.defaultValue = defaultValue;
         }
-        config.width = databaseField.width();
-        config.canBeNull = databaseField.canBeNull();
-        config.id = databaseField.id();
-        config.generatedId = databaseField.generatedId();
-        config.generatedIdSequence = valueIfNotBlank(databaseField.generatedIdSequence());
-        config.foreign = databaseField.foreign();
-        config.useGetSet = databaseField.useGetSet();
-        config.unknownEnumValue = findMatchingEnumVal(field, databaseField.unknownEnumName());
-        config.throwIfNull = databaseField.throwIfNull();
-        config.format = valueIfNotBlank(databaseField.format());
-        config.unique = databaseField.unique();
-        config.uniqueCombo = databaseField.uniqueCombo();
+        bindings.width = databaseField.width();
+        bindings.canBeNull = databaseField.canBeNull();
+        bindings.id = databaseField.id();
+        bindings.generatedId = databaseField.generatedId();
+        bindings.generatedIdSequence = valueIfNotBlank(databaseField.generatedIdSequence());
+        bindings.foreign = databaseField.foreign();
+        bindings.useGetSet = databaseField.useGetSet();
+        bindings.unknownEnumValue = findMatchingEnumVal(field, databaseField.unknownEnumName(), messager);
+        bindings.throwIfNull = databaseField.throwIfNull();
+        bindings.format = valueIfNotBlank(databaseField.format());
+        bindings.unique = databaseField.unique();
+        bindings.uniqueCombo = databaseField.uniqueCombo();
         // add in the index information
-        config.index = databaseField.index();
-        config.indexName = valueIfNotBlank(databaseField.indexName());
-        config.uniqueIndex = databaseField.uniqueIndex();
-        config.uniqueIndexName = valueIfNotBlank(databaseField.uniqueIndexName());
-        config.foreignAutoRefresh = databaseField.foreignAutoRefresh();
-        config.maxForeignAutoRefreshLevel = databaseField.maxForeignAutoRefreshLevel();
+        bindings.index = databaseField.index();
+        bindings.indexName = valueIfNotBlank(databaseField.indexName());
+        bindings.uniqueIndex = databaseField.uniqueIndex();
+        bindings.uniqueIndexName = valueIfNotBlank(databaseField.uniqueIndexName());
+        bindings.foreignAutoRefresh = databaseField.foreignAutoRefresh();
+        bindings.maxForeignAutoRefreshLevel = databaseField.maxForeignAutoRefreshLevel();
         try {
             databaseField.persisterClass();
         } catch (MirroredTypeException e) {
             Element element = typeUtils.asElement(e.getTypeMirror());
             if (!element.getKind().equals(ElementKind.CLASS)) {
-                throw new IllegalStateException("persisterClass must be a class.");
+                messager.printMessage(Diagnostic.Kind.ERROR, "persisterClass must be a class", element);
+                return null;
             }
-            config.persisterClass = (TypeElement) element;
+            bindings.persisterClass = (TypeElement) element;
         }
-        config.allowGeneratedIdInsert = databaseField.allowGeneratedIdInsert();
-        config.columnDefinition = valueIfNotBlank(databaseField.columnDefinition());
-        config.foreignAutoCreate = databaseField.foreignAutoCreate();
-        config.version = databaseField.version();
-        config.foreignColumnName = valueIfNotBlank(databaseField.foreignColumnName());
-        config.readOnly = databaseField.readOnly();
+        bindings.allowGeneratedIdInsert = databaseField.allowGeneratedIdInsert();
+        bindings.columnDefinition = valueIfNotBlank(databaseField.columnDefinition());
+        bindings.foreignAutoCreate = databaseField.foreignAutoCreate();
+        bindings.version = databaseField.version();
+        bindings.foreignColumnName = valueIfNotBlank(databaseField.foreignColumnName());
+        bindings.readOnly = databaseField.readOnly();
 
-        return config;
+        return bindings;
     }
 
     /**
      * Internal method that finds the matching enum for a configured field that has the name argument.
      *
      * @return The matching enum value or null if blank enum name.
-     * @throws IllegalArgumentException If the enum name is not known.
      */
-    public static Element findMatchingEnumVal(Element field, String unknownEnumName) {
+    public static Element findMatchingEnumVal(Element field, String unknownEnumName, Messager messager) {
         if (unknownEnumName == null || unknownEnumName.length() == 0) {
             return null;
         }
-        if (!field.getKind().equals(ElementKind.ENUM)) {
-            throw new IllegalStateException("Element must be an enum to be used with unknownEnumName.");
+        VariableElement variableElement = (VariableElement) field;
+        DeclaredType type = (DeclaredType) variableElement.asType();
+        Element declaredElement = type.asElement();
+        if (!declaredElement.getKind().equals(ElementKind.ENUM)) {
+            messager.printMessage(Diagnostic.Kind.ERROR, "To use unknownEnumValue, the parameter must be of type enum", declaredElement);
         }
-        for (Element element : field.getEnclosedElements()) {
+        TypeElement typeElement = (TypeElement) declaredElement;
+        for (Element element : typeElement.getEnclosedElements()) {
             if (element.getKind().equals(ElementKind.ENUM_CONSTANT)) {
                 if (element.getSimpleName().toString().equals(unknownEnumName)) {
                     return element;
                 }
             }
         }
-        throw new IllegalArgumentException("Unknwown enum unknown name " + unknownEnumName + " for field " + field);
+        messager.printMessage(Diagnostic.Kind.ERROR, "Unknown enum unknown name: " + unknownEnumName + " for field " + field);
+        return null;
     }
 
     public static FieldBindings fromForeignCollection(Element field, ForeignCollectionField foreignCollection) {
-        FieldBindings config = new FieldBindings();
-        config.fieldName = field.getSimpleName().toString();
+        FieldBindings bindings = new FieldBindings();
+        bindings.fieldName = field.getSimpleName().toString();
         if (foreignCollection.columnName().length() > 0) {
-            config.columnName = foreignCollection.columnName();
+            bindings.columnName = foreignCollection.columnName();
         }
-        config.foreignCollection = true;
-        config.foreignCollectionEager = foreignCollection.eager();
+        bindings.foreignCollection = true;
+        bindings.foreignCollectionEager = foreignCollection.eager();
         @SuppressWarnings("deprecation")
         int maxEagerLevel = foreignCollection.maxEagerForeignCollectionLevel();
         if (maxEagerLevel != ForeignCollectionField.MAX_EAGER_LEVEL) {
-            config.foreignCollectionMaxEagerLevel = maxEagerLevel;
+            bindings.foreignCollectionMaxEagerLevel = maxEagerLevel;
         } else {
-            config.foreignCollectionMaxEagerLevel = foreignCollection.maxEagerLevel();
+            bindings.foreignCollectionMaxEagerLevel = foreignCollection.maxEagerLevel();
         }
-        config.foreignCollectionOrderColumnName = valueIfNotBlank(foreignCollection.orderColumnName());
-        config.foreignCollectionOrderAscending = foreignCollection.orderAscending();
-        config.foreignCollectionColumnName = valueIfNotBlank(foreignCollection.columnName());
+        bindings.foreignCollectionOrderColumnName = valueIfNotBlank(foreignCollection.orderColumnName());
+        bindings.foreignCollectionOrderAscending = foreignCollection.orderAscending();
+        bindings.foreignCollectionColumnName = valueIfNotBlank(foreignCollection.columnName());
         String foreignFieldName = valueIfNotBlank(foreignCollection.foreignFieldName());
         if (foreignFieldName == null) {
             @SuppressWarnings("deprecation")
             String foreignColumnName = valueIfNotBlank(foreignCollection.foreignColumnName());
-            config.foreignCollectionForeignFieldName = valueIfNotBlank(foreignColumnName);
+            bindings.foreignCollectionForeignFieldName = valueIfNotBlank(foreignColumnName);
         } else {
-            config.foreignCollectionForeignFieldName = foreignFieldName;
+            bindings.foreignCollectionForeignFieldName = foreignFieldName;
         }
-        return config;
+        return bindings;
     }
 
     private String findIndexName(String tableName) {
