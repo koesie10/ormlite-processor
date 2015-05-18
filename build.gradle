@@ -2,8 +2,8 @@ apply plugin: 'java'
 apply plugin: 'maven'
 apply plugin: 'bintray-release'
 
-group = 'com.koenv.ormlite-processor'
-version = '0.2-SNAPSHOT'
+group = 'com.koenv'
+version = '0.2'
 
 sourceCompatibility = 1.7
 targetCompatibility = 1.7

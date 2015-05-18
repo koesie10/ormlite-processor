@@ -77,12 +77,10 @@ Dependency
 First, add an annotation processor plugin. I recommend [android-apt](https://bitbucket.org/hvisser/android-apt). Then, add the following snippet:
 ```java
 repositories {
-    maven {
-        url 'http://dl.bintray.com/koesie10/maven'
-    }
+    jcenter()
 }
 dependencies {
-    apt 'com.koenv:ormlite-processor:0.1'
+    apt 'com.koenv:ormlite-processor:0.2'
 }
 ```
 
