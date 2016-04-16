@@ -3,7 +3,7 @@ apply plugin: 'maven'
 apply plugin: 'bintray-release'
 
 group = 'com.koenv'
-version = '0.2'
+version = '0.2.1'
 
 sourceCompatibility = 1.7
 targetCompatibility = 1.7
@@ -29,7 +29,7 @@ buildscript {
         jcenter()
     }
     dependencies {
-        classpath 'com.jfrog.bintray.gradle:gradle-bintray-plugin:1.2'
+        classpath 'com.jfrog.bintray.gradle:gradle-bintray-plugin:1.6'
         classpath 'com.novoda:bintray-release:0.2.10'
     }
 }
