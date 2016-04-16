@@ -283,7 +283,7 @@ public class AnnotationProcessor extends AbstractProcessor {
         if (config.getMaxForeignAutoRefreshLevel() != DatabaseField.NO_MAX_FOREIGN_AUTO_REFRESH_LEVEL_SPECIFIED) {
             builder.addStatement("config.setMaxForeignAutoRefreshLevel($L)", config.getMaxForeignAutoRefreshLevel());
         }
-        if (!config.getPersisterClass().getQualifiedName().toString().equals("com.j256.ormlite.field.types.VoidType")) {
+        if (config.getPersisterClass() != null && !config.getPersisterClass().getQualifiedName().toString().equals("com.j256.ormlite.field.types.VoidType")) {
             builder.addStatement("config.setPersisterClass($T.class)", config.getPersisterClass());
         }
         if (config.isAllowGeneratedIdInsert()) {
